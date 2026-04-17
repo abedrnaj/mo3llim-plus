@@ -5,7 +5,7 @@ import { THEME_COLORS, Logo } from '../constants';
 
 const LoginPage: React.FC = () => {
   const { theme } = useTheme();
-  const { login } = useAuth();
+  const { login, error } = useAuth();
   const colors = THEME_COLORS[theme];
 
   return (
@@ -20,6 +20,11 @@ const LoginPage: React.FC = () => {
         </div>
 
         <div className="space-y-6">
+          {error && (
+            <div className="p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-2xl text-sm font-bold border border-red-200 dark:border-red-800/50">
+              {error}
+            </div>
+          )}
           <button
             onClick={login}
             className={`w-full py-5 rounded-[1.5rem] text-white font-black text-xl transition-all border-b-4 ${

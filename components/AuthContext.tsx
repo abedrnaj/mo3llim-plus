@@ -26,6 +26,7 @@ interface AuthContextType {
   addPost: (content: string, imageUrl?: string) => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
   isAuthReady: boolean;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [savedPlans, setSavedPlans] = useState<any[]>([]);
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -58,8 +60,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             setUser(userDoc.data() as UserProfile);
           }
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+        } catch (err) {
+          console.error("User profile fetch error:", err);
+          handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
         }
       } else {
         setIsLoggedIn(false);
@@ -77,14 +80,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
       setCommunityPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'posts'));
+    }, (err) => {
+      console.error("Posts snapshot error:", err);
+      handleFirestoreError(err, OperationType.GET, 'posts');
+    });
   }, []);
 
   const login = async () => {
+    setError(null);
     try {
+      if (!import.meta.env.VITE_FIREBASE_API_KEY) {
+        throw new Error("Firebase API Key is missing. Please check your environment variables in settings.");
+      }
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Login Error:", error);
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      let message = "حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.";
+      if (err.code === "auth/popup-blocked") {
+        message = "تم حظر النافذة المنبثقة. يرجى السماح بالمنبثقات في متصفحك.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        message = "هذا النطاق غير مصرح به في إعدادات Firebase الخاصة بك.";
+      } else if (err.message?.includes("Firebase API Key is missing")) {
+        message = err.message;
+      }
+      setError(message);
     }
   };
 
@@ -149,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{ 
-      isLoggedIn, login, logout, user, savedPlans, communityPosts, savePlan, addPost, updateUserProfile, isAuthReady 
+      isLoggedIn, login, logout, user, savedPlans, communityPosts, savePlan, addPost, updateUserProfile, isAuthReady, error 
     }}>
       {children}
     </AuthContext.Provider>
