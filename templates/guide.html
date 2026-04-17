@@ -1,0 +1,37 @@
+
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-16 animate-fadeIn">
+    <div class="text-center space-y-4">
+        <h1 class="text-5xl font-black">دليل المعلم العصري</h1>
+        <p class="text-xl opacity-60">فهم عميق لأحدث المنهجيات التربوية العالمية وكيفية تطبيقها</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+        {% for method in methods %}
+        <div class="p-12 rounded-[4rem] border-2 shadow-2xl relative overflow-hidden group"
+             :class="theme === 'day' ? 'bg-white border-blue-50' : 'bg-[#1E1E1E] border-gray-800'">
+            <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full opacity-5 transition-transform group-hover:scale-150"
+                 :class="theme === 'day' ? 'bg-blue-600' : 'bg-orange-600'"></div>
+            
+            <h3 class="text-4xl font-black mb-6" :class="theme === 'day' ? 'text-blue-600' : 'text-orange-500'">{{ method.title }}</h3>
+            
+            <div class="space-y-8">
+                <div>
+                    <h5 class="text-xl font-bold mb-2 opacity-40">التركيز الأساسي:</h5>
+                    <p class="text-2xl font-bold">{{ method.focus }}</p>
+                </div>
+                <div>
+                    <h5 class="text-xl font-bold mb-2 opacity-40">الفائدة التربوية:</h5>
+                    <p class="text-2xl font-bold">{{ method.benefit }}</p>
+                </div>
+                <button class="w-full py-4 rounded-3xl border-2 border-dashed font-bold transition-all hover:bg-current hover:text-white"
+                        :class="theme === 'day' ? 'border-blue-200 text-blue-600' : 'border-orange-800 text-orange-500'">
+                    اقرأ المزيد عن التطبيق
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
