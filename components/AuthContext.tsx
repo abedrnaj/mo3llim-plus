@@ -11,7 +11,7 @@ interface UserProfile {
   role: 'teacher' | 'admin';
   specialization?: string;
   bio?: string;
-  createdAt: any;
+  created_at: any;
 }
 
 interface AuthContextType {
@@ -93,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           displayName: supabaseUser.user_metadata.full_name || 'معلم مبدع',
           photoURL: supabaseUser.user_metadata.avatar_url || `https://i.pravatar.cc/150?u=${supabaseUser.id}`,
           role: 'teacher',
-          createdAt: new Date().toISOString()
+          created_at: new Date().toISOString()
         };
         const { error: insertError } = await supabase
           .from('profiles')
