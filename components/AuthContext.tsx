@@ -1,8 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db, googleProvider, OperationType, handleFirestoreError, serverTimestamp } from '../firebase';
-import { onAuthStateChanged, signInWithPopup, signOut, updateProfile as firebaseUpdateProfile } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, collection, query, orderBy, addDoc, updateDoc } from 'firebase/firestore';
+import { supabase, isConfigured } from '../supabase';
+import { User } from '@supabase/supabase-js';
 
 interface UserProfile {
   uid: string;
@@ -18,6 +17,7 @@ interface UserProfile {
 interface AuthContextType {
   isLoggedIn: boolean;
   login: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
   user: UserProfile | null;
   savedPlans: any[];
@@ -32,7 +32,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [session, setSession] = useState<any>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [savedPlans, setSavedPlans] = useState<any[]>([]);
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
@@ -40,135 +40,214 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setIsLoggedIn(true);
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        try {
-          const userDoc = await getDoc(userDocRef);
-          if (!userDoc.exists()) {
-            const newUser: UserProfile = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || 'معلم مبدع',
-              photoURL: firebaseUser.photoURL || `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
-              role: 'teacher',
-              createdAt: serverTimestamp()
-            };
-            await setDoc(userDocRef, newUser);
-            setUser(newUser);
-          } else {
-            setUser(userDoc.data() as UserProfile);
-          }
-        } catch (err) {
-          console.error("User profile fetch error:", err);
-          handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
-        }
-      } else {
-        setIsLoggedIn(false);
-        setUser(null);
-        setSavedPlans([]);
-      }
+    if (!isConfigured) {
+      setError('يرجى ضبط إعدادات Supabase (VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY) في الإعدادات لتتمكن من استخدام التطبيق.');
       setIsAuthReady(true);
+      return;
+    }
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchProfile(session.user);
+      } else {
+        setIsAuthReady(true);
+      }
     });
 
-    return () => unsubscribe();
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session?.user) {
+        fetchProfile(session.user);
+      } else {
+        setUser(null);
+        setIsLoggedIn(false);
+        setIsAuthReady(true);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(!!session);
+  }, [session]);
+
+  const fetchProfile = async (supabaseUser: User) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('uid', supabaseUser.id)
+        .single();
+
+      if (error && error.code === 'PGRST116') {
+        // Profile doesn't exist, create it
+        const newProfile: UserProfile = {
+          uid: supabaseUser.id,
+          email: supabaseUser.email || '',
+          displayName: supabaseUser.user_metadata.full_name || 'معلم مبدع',
+          photoURL: supabaseUser.user_metadata.avatar_url || `https://i.pravatar.cc/150?u=${supabaseUser.id}`,
+          role: 'teacher',
+          createdAt: new Date().toISOString()
+        };
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert([newProfile]);
+        
+        if (insertError) throw insertError;
+        setUser(newProfile);
+      } else if (error) {
+        throw error;
+      } else {
+        setUser(data);
+      }
+    } catch (err) {
+      console.error("Profile fetch error:", err);
+    } finally {
+      setIsAuthReady(true);
+    }
+  };
 
   // Listen for community posts (Remote)
   useEffect(() => {
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
-      setCommunityPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (err) => {
-      console.error("Posts snapshot error:", err);
-      handleFirestoreError(err, OperationType.GET, 'posts');
-    });
+    const fetchPosts = async () => {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (!error && data) {
+        setCommunityPosts(data);
+      }
+    };
+
+    fetchPosts();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('public:posts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
+        fetchPosts();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const login = async () => {
     setError(null);
+    if (!isConfigured) {
+      setError('يرجى ضبط إعدادات Supabase أولاً للتمكن من تسجيل الدخول.');
+      return;
+    }
     try {
-      if (!import.meta.env.VITE_FIREBASE_API_KEY) {
-        throw new Error("Firebase API Key is missing. Please check your environment variables in settings.");
-      }
-      await signInWithPopup(auth, googleProvider);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (error) throw error;
     } catch (err: any) {
       console.error("Login Error:", err);
-      let message = "حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.";
-      if (err.code === "auth/popup-blocked") {
-        message = "تم حظر النافذة المنبثقة. يرجى السماح بالمنبثقات في متصفحك.";
-      } else if (err.code === "auth/unauthorized-domain") {
-        message = "هذا النطاق غير مصرح به في إعدادات Firebase الخاصة بك.";
-      } else if (err.message?.includes("Firebase API Key is missing")) {
-        message = err.message;
-      }
-      setError(message);
+      setError(`حدث خطأ أثناء تسجيل الدخول: ${err.message}`);
+    }
+  };
+
+  const loginWithEmail = async (email: string, pass: string) => {
+    setError(null);
+    if (!isConfigured) {
+      setError('يرجى ضبط إعدادات Supabase أولاً للتمكن من تسجيل الدخول.');
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: pass,
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Login Email Error:", err);
+      setError(`حدث خطأ أثناء تسجيل الدخول: ${err.message}`);
     }
   };
 
   const logout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
     } catch (error) {
       console.error("Logout Error:", error);
     }
   };
 
   const updateUserProfile = async (data: Partial<UserProfile>) => {
-    if (!auth.currentUser || !user) return;
-    const userDocRef = doc(db, 'users', auth.currentUser.uid);
+    if (!session?.user || !user) return;
     try {
-      // Update Firebase Auth profile if displayName or photoURL changed
-      if (data.displayName || data.photoURL) {
-        await firebaseUpdateProfile(auth.currentUser, {
-          displayName: data.displayName || auth.currentUser.displayName,
-          photoURL: data.photoURL || auth.currentUser.photoURL
-        });
-      }
-      // Update Firestore
-      await updateDoc(userDocRef, data);
+      const { error } = await supabase
+        .from('profiles')
+        .update(data)
+        .eq('uid', session.user.id);
+      
+      if (error) throw error;
       setUser({ ...user, ...data });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+    } catch (error: any) {
+      console.error("Update profile error:", error);
+      setError(`خطأ في تحديث البيانات: ${error.message}`);
     }
   };
 
   const savePlan = async (plan: any) => {
-    if (!isLoggedIn || !user) return;
+    if (!session?.user || !user) return;
     const newPlan = { 
       ...plan, 
-      authorId: user.uid, 
-      createdAt: serverTimestamp() 
+      author_id: session.user.id, 
+      created_at: new Date().toISOString() 
     };
     try {
-      await addDoc(collection(db, 'lessonPlans'), newPlan);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'lessonPlans');
+      const { error } = await supabase
+        .from('lesson_plans')
+        .insert([newPlan]);
+      
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Save plan error:", error);
+      setError(`خطأ أثناء حفظ الخطة: ${error.message}`);
     }
   };
 
   const addPost = async (content: string, imageUrl?: string) => {
-    if (!isLoggedIn || !user) return;
+    if (!session?.user || !user) return;
     const newPost = {
-      authorUid: user.uid,
-      authorName: user.displayName,
-      authorPhoto: user.photoURL,
+      author_uid: session.user.id,
+      author_name: user.displayName,
+      author_photo: user.photoURL,
       content,
-      imageUrl: imageUrl || null,
-      likesCount: 0,
-      createdAt: serverTimestamp()
+      image_url: imageUrl || null,
+      likes_count: 0,
+      created_at: new Date().toISOString()
     };
     try {
-      await addDoc(collection(db, 'posts'), newPost);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'posts');
+      const { error } = await supabase
+        .from('posts')
+        .insert([newPost]);
+      
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Add post error:", error);
+      setError(`خطأ أثناء إضافة المنشور: ${error.message}`);
     }
   };
 
   return (
     <AuthContext.Provider value={{ 
-      isLoggedIn, login, logout, user, savedPlans, communityPosts, savePlan, addPost, updateUserProfile, isAuthReady, error 
+      isLoggedIn, login, loginWithEmail, logout, user, savedPlans, communityPosts, savePlan, addPost, updateUserProfile, isAuthReady, error 
     }}>
       {children}
     </AuthContext.Provider>
