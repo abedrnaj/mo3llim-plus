@@ -3,8 +3,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, isConfigured } from '../supabase';
 import { User } from '@supabase/supabase-js';
 
-import prophoto from './prophoto.png';
-
 interface UserProfile {
   uid: string;
   display_name: string;
@@ -93,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           uid: supabaseUser.id,
           email: supabaseUser.email || '',
           display_name: 'عبد الرحمن نجاجرة',
-          photo_url: prophoto,
+          photo_url: '/prophoto.png',
           specialization: 'علم حاسوب',
           bio: 'خبير في بناء المواقع الإلكترونية وشغوف بنقل التقنية للأجيال القادمة.',
           role: 'teacher',

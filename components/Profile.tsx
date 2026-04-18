@@ -4,7 +4,6 @@ import { useTheme } from './ThemeContext';
 import { THEME_COLORS } from '../constants';
 import { Sparkles, Save, User as UserIcon, Camera, Briefcase, BookOpen, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../supabase';
-import prophoto from './prophoto.png';
 
 const Profile: React.FC = () => {
   const { user, updateUserProfile, isAuthReady } = useAuth();
@@ -16,7 +15,7 @@ const Profile: React.FC = () => {
     display_name: user?.display_name || 'عبد الرحمن نجاجرة',
     specialization: user?.specialization || 'علم حاسوب',
     bio: user?.bio || 'خبير في بناء المواقع الإلكترونية وشغوف بنقل التقنية للأجيال القادمة.',
-    photo_url: user?.photo_url || prophoto
+    photo_url: user?.photo_url || '/prophoto.png'
   });
 
   // Sync when user finally loads, but ONLY if we haven't started typing
@@ -27,7 +26,7 @@ const Profile: React.FC = () => {
         display_name: user.display_name || 'عبد الرحمن نجاجرة',
         specialization: user.specialization || 'علم حاسوب',
         bio: user.bio || 'خبير في بناء المواقع الإلكترونية وشغوف بنقل التقنية للأجيال القادمة.',
-        photo_url: user.photo_url || prophoto
+        photo_url: user.photo_url || '/prophoto.png'
       });
     }
   }, [user, hasStartedTyping]);
@@ -288,7 +287,7 @@ const Profile: React.FC = () => {
                   />
                 ) : (
                   <img 
-                    src={prophoto}
+                    src="/prophoto.png"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                     alt="Default Avatar" 
                     referrerPolicy="no-referrer"
