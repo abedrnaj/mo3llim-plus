@@ -5,9 +5,9 @@ import { User } from '@supabase/supabase-js';
 
 interface UserProfile {
   uid: string;
-  displayName: string;
+  display_name: string;
   email: string;
-  photoURL: string;
+  photo_url: string;
   role: 'teacher' | 'admin';
   specialization?: string;
   bio?: string;
@@ -90,8 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newProfile: UserProfile = {
           uid: supabaseUser.id,
           email: supabaseUser.email || '',
-          displayName: supabaseUser.user_metadata.full_name || 'معلم مبدع',
-          photoURL: supabaseUser.user_metadata.avatar_url || `https://i.pravatar.cc/150?u=${supabaseUser.id}`,
+          display_name: supabaseUser.user_metadata.full_name || 'معلم مبدع',
+          photo_url: supabaseUser.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${supabaseUser.id}`,
           role: 'teacher',
           created_at: new Date().toISOString()
         };
@@ -200,6 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error("Update profile error:", error);
       setError(`خطأ في تحديث البيانات: ${error.message}`);
+      throw error; // Re-throw to inform the UI
     }
   };
 
@@ -226,8 +227,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!session?.user || !user) return;
     const newPost = {
       author_uid: session.user.id,
-      author_name: user.displayName,
-      author_photo: user.photoURL,
+      author_name: user.display_name,
+      author_photo: user.photo_url,
       content,
       image_url: imageUrl || null,
       likes_count: 0,
