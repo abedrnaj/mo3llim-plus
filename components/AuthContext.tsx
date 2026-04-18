@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, isConfigured } from '../supabase';
 import { User } from '@supabase/supabase-js';
 
+import prophoto from './prophoto.png';
+
 interface UserProfile {
   uid: string;
   display_name: string;
@@ -90,8 +92,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newProfile: UserProfile = {
           uid: supabaseUser.id,
           email: supabaseUser.email || '',
-          display_name: supabaseUser.user_metadata.full_name || 'معلم مبدع',
-          photo_url: supabaseUser.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${supabaseUser.id}`,
+          display_name: 'عبد الرحمن نجاجرة',
+          photo_url: prophoto,
+          specialization: 'علم حاسوب',
+          bio: 'خبير في بناء المواقع الإلكترونية وشغوف بنقل التقنية للأجيال القادمة.',
           role: 'teacher',
           created_at: new Date().toISOString()
         };

@@ -4,6 +4,7 @@ import { useTheme } from './ThemeContext';
 import { THEME_COLORS } from '../constants';
 import { Sparkles, Save, User as UserIcon, Camera, Briefcase, BookOpen, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../supabase';
+import prophoto from './prophoto.png';
 
 const Profile: React.FC = () => {
   const { user, updateUserProfile, isAuthReady } = useAuth();
@@ -12,10 +13,10 @@ const Profile: React.FC = () => {
   
   // Local state for the creative draft - initializes immediately
   const [formData, setFormData] = useState({
-    display_name: user?.display_name || '',
-    specialization: user?.specialization || '',
-    bio: user?.bio || '',
-    photo_url: user?.photo_url || ''
+    display_name: user?.display_name || 'عبد الرحمن نجاجرة',
+    specialization: user?.specialization || 'علم حاسوب',
+    bio: user?.bio || 'خبير في بناء المواقع الإلكترونية وشغوف بنقل التقنية للأجيال القادمة.',
+    photo_url: user?.photo_url || prophoto
   });
 
   // Sync when user finally loads, but ONLY if we haven't started typing
@@ -23,15 +24,15 @@ const Profile: React.FC = () => {
   useEffect(() => {
     if (user && !hasStartedTyping) {
       setFormData({
-        display_name: user.display_name || '',
-        specialization: user.specialization || '',
-        bio: user.bio || '',
-        photo_url: user.photo_url || ''
+        display_name: user.display_name || 'عبد الرحمن نجاجرة',
+        specialization: user.specialization || 'علم حاسوب',
+        bio: user.bio || 'خبير في بناء المواقع الإلكترونية وشغوف بنقل التقنية للأجيال القادمة.',
+        photo_url: user.photo_url || prophoto
       });
     }
   }, [user, hasStartedTyping]);
 
-  const [isEditing, setIsEditing] = useState(!user?.display_name);
+  const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -85,8 +86,10 @@ const Profile: React.FC = () => {
     try {
       await updateUserProfile(formData);
       setIsEditing(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      alert('حدث خطأ أثناء حفظ البيانات. يدو أن الأعمدة الجديدة لم يتم تفعيلها ببعد في قاعدة البيانات. لكن لا تقلق، البيانات ستظهر بشكل صحيح لك الآن.');
+      setIsEditing(false); // Close anyway to show the fallback data
     } finally {
       setIsSaving(false);
     }
@@ -233,19 +236,19 @@ const Profile: React.FC = () => {
                     <Sparkles size={20} className="text-blue-500 animate-pulse" />
                   </div>
                   <h2 className={`text-4xl md:text-7xl font-black ${colors.text} tracking-tight`}>
-                    {user?.display_name || 'معلم بلس'}
+                    {user?.display_name || 'عبد الرحمن نجاجرة'}
                   </h2>
                 </div>
                 
                 <div className="flex items-center justify-end gap-3">
                   <p className="text-orange-500 font-black text-xl md:text-4xl">
-                    {user?.specialization || 'لم يتم تحديد التخصص'}
+                    {user?.specialization || 'علم حاسوب'}
                   </p>
                   <div className="w-12 h-1 bg-orange-500 rounded-full"></div>
                 </div>
 
                 <p className={`${colors.muted} text-lg md:text-2xl leading-relaxed max-w-2xl ml-auto border-r-4 border-blue-500/20 pr-6 italic`}>
-                  {user?.bio || 'بانتظار أن تشاركنا رؤيتك التعليمية وشغفك بالتدريس. ابدأ الآن بتعديل ملفك لتظهر لمساتك الإبداعية.'}
+                  {user?.bio || 'خبير في بناء المواقع الإلكترونية وشغوف بنقل التقنية للأجيال القادمة.'}
                 </p>
 
                 <div className="flex flex-col sm:flex-row justify-center md:justify-end gap-6 pt-10">
@@ -284,10 +287,12 @@ const Profile: React.FC = () => {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400 gap-4">
-                    <UserIcon size={80} strokeWidth={1} className="opacity-50" />
-                    <p className="font-bold text-sm opacity-50 px-8 text-center">لم يتم اختيار صورة بعد</p>
-                  </div>
+                  <img 
+                    src={prophoto}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                    alt="Default Avatar" 
+                    referrerPolicy="no-referrer"
+                  />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-6">
                    <p className="text-white font-bold text-sm bg-black/40 backdrop-blur-md px-4 py-1 rounded-full">معاينة صورتك</p>
