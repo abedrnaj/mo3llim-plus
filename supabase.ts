@@ -13,9 +13,15 @@ const formatUrl = (url: string | undefined): string | null => {
     formatted = `https://${formatted}.supabase.co`;
   }
   
-  // If the user provided the URL without the domain part
-  if (formatted.startsWith('https://') && !formatted.includes('.supabase.co')) {
+  // If they provided "https://project-id" without the domain
+  if (formatted.startsWith('https://') && !formatted.includes('.') && formatted.split('/').length === 3) {
     formatted = `${formatted}.supabase.co`;
+  }
+  
+  // If it's missing the .co part or similar common truncation
+  if (formatted.includes('supabase') && !formatted.endsWith('.co')) {
+    if (formatted.endsWith('.supabase')) formatted += '.co';
+    else if (!formatted.includes('.supabase.co')) formatted += '.supabase.co';
   }
 
   try {
